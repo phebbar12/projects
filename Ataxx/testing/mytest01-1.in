@@ -1,0 +1,12 @@
+#* java -ea ataxx.Main
+seed 123458
+block d4
+a7-b6
+auto red
+#*move/win+
+dump
+quit
+
+
+
+
