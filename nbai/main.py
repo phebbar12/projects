@@ -1,11 +1,17 @@
-from ultralytics import YOLO
+from utils import read_frames, write_frames
+from tracking import PlayerTracker
 
-model = YOLO("models/ball_detector_model.pt")
+def main():
 
-results = model.predict("input_videos/video_1.mp4", save=True)
-print(results)
-print("==========================")
-for box in results[0].boxes:
-    print(box)
+    frames = read_frames("input_videos/video_1.mp4")
+
+    player_tracker = PlayerTracker("models/player_detector.pt")
+    player_tracks = player_tracker.get_object_tracks(frames)
+    
+    print(player_tracks)
+
+    write_frames(frames, "output_videos/output_video1.avi")
 
 
+if __name__ == '__main__':
+    main()
