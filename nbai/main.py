@@ -17,6 +17,9 @@ def main():
                                                  read_from_stub=True,
                                                  stub_path="stubs/ball_track_stubs.pk1")
     
+    ball_tracks = ball_tracker.validate_detection(ball_tracks)
+    ball_tracks = ball_tracker.interpolate_ball_position(ball_tracks)
+    
     player_tracks_drawer = PlayerTrackDrawer()
     ball_tracks_drawer = BallTracksDrawer()
 
