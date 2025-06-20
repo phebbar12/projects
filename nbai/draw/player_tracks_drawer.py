@@ -1,4 +1,4 @@
-from .utils import draw_ellipse
+from .utils import draw_ellipse, draw_pointer
 
 class PlayerTrackDrawer:
 
@@ -7,7 +7,7 @@ class PlayerTrackDrawer:
         self.team_1_color = team_1_color
         self.team_2_color = team_2_color
 
-    def draw(self, frames, tracks, player_assignments):
+    def draw(self, frames, tracks, player_assignments, ball_possessions):
 
         output_frames = []
 
@@ -18,6 +18,8 @@ class PlayerTrackDrawer:
 
             player_assignment = player_assignments[frame_num]
 
+            possession_player_id = ball_possessions[frame_num]
+
             for track_id, player_bb in player_dict.items():
                 team_id = player_assignment.get(track_id, self.default_team)
 
@@ -25,6 +27,9 @@ class PlayerTrackDrawer:
                     color = self.team_1_color
                 else:
                     color = self.team_2_color
+
+                if track_id == possession_player_id:
+                    frame = draw_pointer(frame, player_bb['bbox'], [0, 0, 255])
                     
                 frame = draw_ellipse(frame, player_bb['bbox'], color, track_id)
 

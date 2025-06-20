@@ -2,6 +2,7 @@ from utils import read_frames, write_frames
 from tracking import PlayerTracker, BallTracker
 from draw import PlayerTrackDrawer, BallTracksDrawer
 from team_classifier import TeamClassifier
+from ball_possession import BallPossessionDetector
 
 def main():
 
@@ -28,12 +29,16 @@ def main():
                                                                           stub_path="stubs/player_assignment_stub.pkl"
                                                                         )
     
+    ball_possession_detector = BallPossessionDetector()
+    ball_possessions = ball_possession_detector.detect_ball_possession(player_tracks, ball_tracks)
+
     player_tracks_drawer = PlayerTrackDrawer()
     ball_tracks_drawer = BallTracksDrawer()
 
     output_frames = player_tracks_drawer.draw(frames, 
                                               player_tracks,
-                                              team_classifications
+                                              team_classifications,
+                                              ball_possessions
                                               )
     output_frames = ball_tracks_drawer.draw(output_frames, 
                                             ball_tracks
