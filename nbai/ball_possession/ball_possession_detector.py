@@ -7,7 +7,7 @@ class BallPossessionDetector:
     
     def __init__(self):
         self.possesion_threshold = 50 
-        self.min_frames = 11
+        self.min_frames = 13
         self.overlap_threshold = 0.8
 
     def get_critical_point(self, player_bbox, ball_center):
