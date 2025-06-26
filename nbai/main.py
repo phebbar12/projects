@@ -43,13 +43,13 @@ def main():
     ball_tracker = BallTracker(BALL_DETECTOR_MODEL_PATH)
     ball_tracks = ball_tracker.get_object_tracks(frames,
                                                  read_from_stub=True,
-                                                 stub_path=os.path.join(args.stub_path, "ball_track_stubs.pk1")
+                                                 stub_path=os.path.join(args.stub_path, "ball_track_stubs.pkl")
                                                 )
     
     court_key_point_detector = CourtKeyPointDetector(KEYPOINT_DETECTOR_MODEL_PATH)
     court_key_points = court_key_point_detector.get_court_key_points(frames, 
                                                                      read_from_stub=True, 
-                                                                     stub_path=os.path.join(args.stub_path, "court_key_points_stubs.pk1")
+                                                                     stub_path=os.path.join(args.stub_path, "court_key_points_stubs.pkl")
                                                                     )
     
     ball_tracks = ball_tracker.validate_detection(ball_tracks)
