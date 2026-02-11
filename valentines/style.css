@@ -1,0 +1,53 @@
+body {
+  background-color: black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-family: monospace;
+  overflow: hidden;
+}
+
+.game-container {
+  text-align: center;
+  position: relative;
+}
+
+.character {
+  position: absolute;
+  background-image: url("./paree.png");
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  left: 50%;
+  top: 35%;
+  transform: translate(-50%, -50%);
+}
+
+
+.dialog-box {
+  background: #ff6b6b;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+h1 {
+  color: white;
+  font-size: 20px;
+}
+
+button {
+  margin: 10px;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 5px;
+}
+
+#yesBtn {
+  background-color: #00ff88;
+}
+
+#noBtn {
+  background-color: white;
+}
