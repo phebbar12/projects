@@ -1,25 +1,53 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Be My Valentine 💘</title>
-  <link rel="stylesheet" href="./style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💝 Be My Valentine?</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="game-container" id="game">
-    <div class="character" id="char"></div>
+  <div class="container">
+    <canvas id="spriteCanvas" class="sprite-canvas"></canvas>
 
-    <div class="dialog-box">
-      <h1>Will you be my Valentine?</h1>
+    <div class="question-box">
+      <h1>Will you be my Vai(lentine)? 
+        <h2>🥺</h2>
+        <h2>👉👈</h2>
+      </h1>
+      
 
       <div class="buttons">
-        <button id="yesBtn">YES</button>
-        <button id="noBtn">NO</button>
+        <button id="yesBtn" class="yes-btn">Yes! I love you! </button>
+        <button id="noBtn" class="no-btn">No</button>
+      </div>
+    </div>
+
+    <div class="success-message" id="successMessage">
+      <h1>WOOOOO!</h1>
+      <p> Mwuahhhhh </p>
+    </div>
+
+    <div class="envelope" id="envelope">💌</div>
+
+    <div class="letter-container" id="letterContainer">
+      <div class="letter">
+        <button class="close-letter" id="closeLetter">✕</button>
+        <div class="letter-content">
+          <h2>Dear Vai, ❤️</h2>
+          <p>Thank you for choosing to be my Vailentine day in and day out. The best part of my life is waking up everyday and getting to love you and getting love from you.</p>
+          <p>I try to imagine what my life would be like if I never met you and even the thought of it makes me feel so cold, empty, and unfulfilled. An endless cycle of work, chores, and anxiety regarding the stupidest things.</p>
+          <p>But I'm so grateful. I'm grateful the universe has blessed me with you, a life partner, spiritual guide, best friend.</p>
+          <p>Thank you for always lighting up my life and guiding me down a path where I can confidently say I am much prouder of the person I am today than I was three years ago before I met you.</p>
+          <p>I love you more than anything and I love the life I get to lead with you, forever and always. 💕</p>
+          <p class="signature">Your best friend/soulmate/eternal partner,<br>Paree 💖</p>
+        </div>
       </div>
     </div>
   </div>
 
-  <script src="./script.js"></script>
+  <div class="hearts"></div>
+
+  <script src="script.js"></script>
 </body>
 </html>

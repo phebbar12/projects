@@ -1,235 +1,408 @@
-// script.js
-// Robust sprite controller + "push NO button away" interaction.
-//
-// Assumes paree.png is a sprite sheet arranged in rows (animations) and columns (frames).
-// Rows (top->bottom) per your notes: 0=waving, 1=brace, 2=pushing, 3=still.  (see filecite in chat)
-//
-// IMPORTANT HTML IDs required:
-// <div class="game-container" id="game">
-//   <div class="character" id="char"></div>
-//   ...
-//   <button id="noBtn">NO</button>
+document.addEventListener('DOMContentLoaded', () => {
+  const noBtn = document.getElementById('noBtn');
+  const yesBtn = document.getElementById('yesBtn');
+  const canvas = document.getElementById('spriteCanvas');
+  const ctx = canvas.getContext('2d');
+  const questionBox = document.querySelector('.question-box');
+  const successMessage = document.getElementById('successMessage');
+  const envelope = document.getElementById('envelope');
+  const letterContainer = document.getElementById('letterContainer');
+  const closeLetter = document.getElementById('closeLetter');
 
-document.addEventListener("DOMContentLoaded", () => {
-  const game = document.getElementById("game");
-  const char = document.getElementById("char");
-  const noBtn = document.getElementById("noBtn");
+  // Sprite configuration
+  const SPRITE_SIZE = 120;
+  canvas.width = SPRITE_SIZE;
+  canvas.height = SPRITE_SIZE;
 
-  if (!game || !char || !noBtn) {
-    console.error("Missing required elements. Need #game, #char, #noBtn.");
-    return;
-  }
+  // Load the face images
+  const faceImg = new Image();
+  faceImg.src = 'face.png';
 
-  // ---------------------------
-  // CONFIG (adjust if needed)
-  // ---------------------------
-  const SPRITE_SHEET_PATH = "./paree.png";
+  const kissingImg = new Image();
+  kissingImg.src = 'kissing.png';
 
-  // How many frames exist across the sheet (columns) and how many animation rows.
-  // If your sheet is NOT 4x4, change these.
-  const SHEET_COLS = 4;
-  const SHEET_ROWS = 4;
+  let currentFaceImg = faceImg;
 
-  // How many frames to animate for EACH row.
-  // Setting PUSHING to 1 removes the “carousel” (no frame-advancing).
-  // If you confirm pushing has 4 frames, change PUSHING to 4.
-  const ROW_FRAMES = {
-    0: 4, // WAVING
-    1: 4, // BRACE
-    2: 1, // PUSHING (default: 1 frame to avoid carousel)
-    3: 1, // STILL
+  // Animation states
+  const STATES = {
+    IDLE: 'idle',
+    WALK: 'walk',
+    PUSH: 'push'
   };
 
-  // Animation speed for rows that DO animate
-  const FPS = 10;
+  let currentState = STATES.IDLE;
+  let animationFrame = 0;
+  let animationTimer = 0;
+  let noBtnPos = { x: 0, y: 0 };
+  let isPushing = false;
+  let spritePos = { x: 0, y: 0 };
+  let imageLoaded = false;
+  let yesBtnScale = 1;
+  let pushCount = 0;
+  let pushDirection = { x: -1, y: 0 }; // Default: pushing left
+  let spriteVisible = false;
+  let hasMovedOnce = false;
+  let gameOver = false;
 
-  // Push behavior tuning
-  const TRIGGER_DISTANCE = 130; // cursor distance to NO before we react
-  const PUSH_DISTANCE = 170;    // how far NO moves per push
-  const PUSH_TIME_MS = 260;     // duration to show pushing pose
-  const PAD = 10;              // keep NO inside container padding
-  // ---------------------------
-
-  const ROW = {
-    WAVING: 0,
-    BRACE: 1,
-    PUSHING: 2,
-    STILL: 3,
+  faceImg.onload = () => {
+    imageLoaded = true;
   };
 
-  const SPRITE = {
-    cols: SHEET_COLS,
-    rows: SHEET_ROWS,
-    fps: FPS,
-    frame: 0,
-    row: ROW.STILL,
-    frameW: 0,
-    frameH: 0,
-    timer: null,
-    loaded: false,
-  };
+  // Draw the sprite character with your face
+  function drawSprite(frame, state) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const sheet = new Image();
-  sheet.src = SPRITE_SHEET_PATH;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
 
-  function clamp(v, min, max) {
-    return Math.max(min, Math.min(max, v));
-  }
+    // Animation - simple breathing effect
+    let faceScale = 1 + Math.sin(frame * 0.1) * 0.02;
 
-  function getRectCenter(rect) {
-    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-  }
+    ctx.save();
+    ctx.translate(centerX, centerY);
 
-  function stopSprite() {
-    if (SPRITE.timer) {
-      clearInterval(SPRITE.timer);
-      SPRITE.timer = null;
+    // Left grabbing hand
+    ctx.save();
+    ctx.translate(-50, 0);
+    ctx.font = '40px Arial';
+    ctx.fillText('🤚', -20, 20);
+    ctx.restore();
+
+    // Draw your actual face (circular pfp style)
+    if (imageLoaded) {
+      ctx.save();
+      ctx.scale(faceScale, faceScale);
+
+      const faceSize = 70;
+      ctx.beginPath();
+      ctx.arc(0, 0, faceSize / 2, 0, Math.PI * 2);
+      ctx.clip();
+
+      ctx.drawImage(currentFaceImg, -faceSize / 2, -faceSize / 2, faceSize, faceSize);
+      ctx.restore();
+
+      // Face border (pixel art style)
+      ctx.strokeStyle = '#2d3436';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, 35, 0, Math.PI * 2);
+      ctx.stroke();
     }
+
+    // Right grabbing hand
+    ctx.save();
+    ctx.translate(50, 0);
+    ctx.font = '40px Arial';
+    ctx.fillText('🤚', -20, 20);
+    ctx.restore();
+
+    ctx.restore();
   }
 
-  function renderSpriteFrame() {
-    const x = -(SPRITE.frame * SPRITE.frameW);
-    const y = -(SPRITE.row * SPRITE.frameH);
-    char.style.backgroundPosition = `${x}px ${y}px`;
+  // Animation loop
+  function animate() {
+    animationTimer++;
+
+    if (animationTimer % 2 === 0) {
+      animationFrame++;
+      drawSprite(animationFrame, currentState);
+    }
+
+    requestAnimationFrame(animate);
   }
 
-  function startSprite() {
-    stopSprite();
+  // Position sprite to follow and grab NO button
+  function positionSprite() {
+    const btnRect = noBtn.getBoundingClientRect();
+    const btnCenterX = btnRect.left + btnRect.width / 2;
+    const btnCenterY = btnRect.top + btnRect.height / 2;
 
-    const framesThisRow = ROW_FRAMES[SPRITE.row] ?? SPRITE.cols;
+    // Position sprite centered on the NO button
+    spritePos.x = btnCenterX - SPRITE_SIZE / 2;
+    spritePos.y = btnCenterY - SPRITE_SIZE / 2;
 
-    // If the row only has 1 frame, do not animate.
-    if (framesThisRow <= 1) {
-      SPRITE.frame = 0;
-      renderSpriteFrame();
+    canvas.style.left = spritePos.x + 'px';
+    canvas.style.top = spritePos.y + 'px';
+
+    // Show sprite visibility
+    canvas.style.opacity = spriteVisible ? '1' : '0';
+  }
+
+  // Get distance between two points
+  function getDistance(x1, y1, x2, y2) {
+    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+  }
+
+  // Initialize NO button position
+  function initNoButton() {
+    // Don't change position initially, let it flow naturally
+  }
+
+  // Move NO button in all directions with contact effect
+  function moveNoButton(mouseX, mouseY) {
+    if (isPushing) return;
+
+    // Calculate direction away from mouse
+    const btnRect = noBtn.getBoundingClientRect();
+
+    // On first move, switch to fixed positioning at current location
+    if (!hasMovedOnce) {
+      noBtnPos = {
+        x: btnRect.left,
+        y: btnRect.top
+      };
+      noBtn.style.position = 'fixed';
+      noBtn.style.left = noBtnPos.x + 'px';
+      noBtn.style.top = noBtnPos.y + 'px';
+      hasMovedOnce = true;
+
+      // Small delay to let fixed positioning settle before moving
+      setTimeout(() => {
+        moveNoButton(mouseX, mouseY);
+      }, 50);
       return;
     }
 
-    SPRITE.timer = setInterval(() => {
-      SPRITE.frame = (SPRITE.frame + 1) % framesThisRow;
-      renderSpriteFrame();
-    }, 1000 / SPRITE.fps);
-  }
-
-  /**
-   * Set sprite row. Auto-animates only if ROW_FRAMES[row] > 1.
-   */
-  function setSpriteRow(row) {
-    SPRITE.row = row;
-    SPRITE.frame = 0;
-    renderSpriteFrame();
-    startSprite();
-  }
-
-  sheet.onload = () => {
-    SPRITE.frameW = Math.floor(sheet.width / SPRITE.cols);
-    SPRITE.frameH = Math.floor(sheet.height / SPRITE.rows);
-
-    char.style.width = `${SPRITE.frameW}px`;
-    char.style.height = `${SPRITE.frameH}px`;
-    char.style.backgroundImage = `url("${SPRITE_SHEET_PATH}")`;
-    char.style.backgroundRepeat = "no-repeat";
-    char.style.backgroundSize = `${sheet.width}px ${sheet.height}px`;
-    char.style.imageRendering = "pixelated";
-
-    // Start standing still, truly not animated (ROW_FRAMES[STILL]=1 handles it)
-    SPRITE.loaded = true;
-    setSpriteRow(ROW.STILL);
-  };
-
-  sheet.onerror = () => {
-    console.error(`Could not load ${SPRITE_SHEET_PATH}. Check file name/path.`);
-  };
-
-  // ---------------------------
-  // NO button push logic
-  // ---------------------------
-  let isPushing = false;
-  let noOffset = { x: 0, y: 0 };
-
-  function moveNoButtonBy(dx, dy) {
-    const gameRect = game.getBoundingClientRect();
-    const btnRect = noBtn.getBoundingClientRect();
-
-    // Proposed absolute position
-    const proposedLeftAbs = btnRect.left + dx;
-    const proposedTopAbs = btnRect.top + dy;
-
-    // Clamp within game container
-    const minLeftAbs = gameRect.left + PAD;
-    const maxLeftAbs = gameRect.right - btnRect.width - PAD;
-    const minTopAbs = gameRect.top + PAD;
-    const maxTopAbs = gameRect.bottom - btnRect.height - PAD;
-
-    const clampedLeftAbs = clamp(proposedLeftAbs, minLeftAbs, maxLeftAbs);
-    const clampedTopAbs = clamp(proposedTopAbs, minTopAbs, maxTopAbs);
-
-    const appliedDx = clampedLeftAbs - btnRect.left;
-    const appliedDy = clampedTopAbs - btnRect.top;
-
-    noOffset.x += appliedDx;
-    noOffset.y += appliedDy;
-
-    noBtn.style.left = `${noOffset.x}px`;
-    noBtn.style.top = `${noOffset.y}px`;
-  }
-
-  function placeCharNextToButton(pushDir) {
-    const btnRect = noBtn.getBoundingClientRect();
-    const btnCenter = getRectCenter(btnRect);
-    const gameRect = game.getBoundingClientRect();
-
-    // Stand “behind” button relative to push direction
-    const standDistance = SPRITE.loaded ? SPRITE.frameW * 0.55 : 70;
-    const standX = btnCenter.x - pushDir.x * standDistance;
-    const standY = btnCenter.y - pushDir.y * standDistance;
-
-    const localX = standX - gameRect.left;
-    const localY = standY - gameRect.top;
-
-    char.style.left = `${clamp(localX, 0, gameRect.width)}px`;
-    char.style.top = `${clamp(localY, 0, gameRect.height)}px`;
-    char.style.transform = "translate(-50%, -50%)";
-  }
-
-  function pushNoAwayFrom(mouseX, mouseY) {
-    if (!SPRITE.loaded || isPushing) return;
     isPushing = true;
+    currentState = STATES.PUSH;
+    const btnCenterX = btnRect.left + btnRect.width / 2;
+    const btnCenterY = btnRect.top + btnRect.height / 2;
 
-    const btnRect = noBtn.getBoundingClientRect();
-    const btnCenter = getRectCenter(btnRect);
+    const deltaX = btnCenterX - mouseX;
+    const deltaY = btnCenterY - mouseY;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-    // Unit vector pointing away from mouse
-    let dx = btnCenter.x - mouseX;
-    let dy = btnCenter.y - mouseY;
-    const len = Math.hypot(dx, dy) || 1;
-    dx /= len;
-    dy /= len;
+    // Store normalized push direction for sprite positioning
+    pushDirection = {
+      x: deltaX / distance,
+      y: deltaY / distance
+    };
 
-    const pushDir = { x: dx, y: dy };
+    // Normalize and push in that direction
+    // Add some randomness to make it unpredictable
+    const pushDistance = 200 + Math.random() * 50; // Random 200-250px
+    let moveX = pushDirection.x * pushDistance;
+    let moveY = pushDirection.y * pushDistance;
 
-    placeCharNextToButton(pushDir);
+    // Calculate new position
+    let newX = noBtnPos.x + moveX;
+    let newY = noBtnPos.y + moveY;
 
-    // Show pushing pose (animates ONLY if ROW_FRAMES[2] > 1)
-    setSpriteRow(ROW.PUSHING);
+    // Screen boundaries with larger padding to avoid corners
+    const padding = 60;
+    const maxX = window.innerWidth - btnRect.width - padding;
+    const maxY = window.innerHeight - btnRect.height - padding;
 
-    // Move the button away
-    moveNoButtonBy(pushDir.x * PUSH_DISTANCE, pushDir.y * PUSH_DISTANCE);
+    // Check if button would be trapped near edges
+    const wouldHitLeft = newX < padding;
+    const wouldHitRight = newX > maxX;
+    const wouldHitTop = newY < padding;
+    const wouldHitBottom = newY > maxY;
 
-    // Return to still pose (no animation)
-    window.setTimeout(() => {
-      setSpriteRow(ROW.STILL);
+    // If trapped in corner or against edge, move toward center instead
+    if ((wouldHitLeft || wouldHitRight) && (wouldHitTop || wouldHitBottom)) {
+      // Corner trap - move to center area
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      newX = centerX - btnRect.width / 2 + (Math.random() - 0.5) * 200;
+      newY = centerY - btnRect.height / 2 + (Math.random() - 0.5) * 200;
+    } else if (wouldHitLeft || wouldHitRight) {
+      // Hitting left/right edge - move perpendicular (up or down)
+      newX = wouldHitLeft ? padding : maxX;
+      // Add extra vertical movement to escape
+      newY = noBtnPos.y + (pushDirection.y * pushDistance * 2);
+    } else if (wouldHitTop || wouldHitBottom) {
+      // Hitting top/bottom edge - move perpendicular (left or right)
+      newY = wouldHitTop ? padding : maxY;
+      // Add extra horizontal movement to escape
+      newX = noBtnPos.x + (pushDirection.x * pushDistance * 2);
+    }
+
+    // Final bounds check
+    noBtnPos.x = Math.max(padding, Math.min(newX, maxX));
+    noBtnPos.y = Math.max(padding, Math.min(newY, maxY));
+
+    // Apply position (CSS transition will handle smooth movement)
+    noBtn.style.left = noBtnPos.x + 'px';
+    noBtn.style.top = noBtnPos.y + 'px';
+
+    // Grow YES button
+    pushCount++;
+    yesBtnScale = 1 + (pushCount * 0.15);
+    yesBtn.style.transform = `translate(2px, 2px) scale(${yesBtnScale})`;
+    yesBtn.style.transition = 'transform 0.3s ease';
+
+    // Return to idle after animation completes
+    setTimeout(() => {
+      currentState = STATES.IDLE;
       isPushing = false;
-    }, PUSH_TIME_MS);
+    }, 350); // Match CSS transition duration
   }
 
-  game.addEventListener("mousemove", (e) => {
-    const btnRect = noBtn.getBoundingClientRect();
-    const c = getRectCenter(btnRect);
-    const dist = Math.hypot(c.x - e.clientX, c.y - e.clientY);
+  // Check mouse proximity to NO button
+  function checkProximity(e) {
+    if (gameOver) return;
 
-    if (dist < TRIGGER_DISTANCE) {
-      pushNoAwayFrom(e.clientX, e.clientY);
+    // Always update sprite position to follow NO button
+    positionSprite();
+
+    if (isPushing) return;
+
+    const btnRect = noBtn.getBoundingClientRect();
+    const btnCenterX = btnRect.left + btnRect.width / 2;
+    const btnCenterY = btnRect.top + btnRect.height / 2;
+
+    const distance = getDistance(e.clientX, e.clientY, btnCenterX, btnCenterY);
+
+    // Start with smaller trigger distance, increase after first move
+    const triggerDistance = hasMovedOnce ? 200 : 120;
+
+    if (distance < triggerDistance) {
+      // Show sprite on first interaction
+      spriteVisible = true;
+      moveNoButton(e.clientX, e.clientY);
+    }
+  }
+
+  // Handle YES button click
+  yesBtn.addEventListener('click', () => {
+    gameOver = true;
+    spriteVisible = true;
+
+    // Switch to kissing face
+    currentFaceImg = kissingImg;
+
+    // Show sprite with kissing face at fixed position (below panel)
+    canvas.style.display = 'block';
+    canvas.style.position = 'fixed';
+    canvas.style.left = '50%';
+    canvas.style.top = '65%';
+    canvas.style.transform = 'translateX(-50%)';
+    canvas.style.transition = 'none'; // Stop smooth transitions
+    canvas.style.opacity = '1'; // Force visible
+    canvas.style.zIndex = '1000';
+
+    questionBox.style.display = 'none';
+    successMessage.classList.add('show');
+
+    // Show envelope in the sprite's hand after a delay
+    setTimeout(() => {
+      envelope.style.display = 'block';
+      // Position envelope in the right hand of the sprite
+      const canvasRect = canvas.getBoundingClientRect();
+      envelope.style.left = (canvasRect.left + canvasRect.width / 2 + 30) + 'px';
+      envelope.style.top = (canvasRect.top + canvasRect.height / 2 - 10) + 'px';
+    }, 1000);
+
+    // Create fireworks
+    createFireworks();
+  });
+
+  // Handle envelope click
+  envelope.addEventListener('click', () => {
+    letterContainer.classList.add('show');
+  });
+
+  // Handle letter close
+  closeLetter.addEventListener('click', () => {
+    letterContainer.classList.remove('show');
+  });
+
+  // Close letter when clicking outside
+  letterContainer.addEventListener('click', (e) => {
+    if (e.target === letterContainer) {
+      letterContainer.classList.remove('show');
     }
   });
+
+  // Handle NO button click
+  noBtn.addEventListener('click', (e) => {
+    moveNoButton(e.clientX, e.clientY);
+  });
+
+  // Mouse move listener
+  document.addEventListener('mousemove', checkProximity);
+
+  // Fireworks effect
+  function createFireworks() {
+    const colors = ['#ff6b9d', '#ffd700', '#00b894', '#ff6b6b', '#a29bfe', '#fd79a8'];
+    const emojis = ['💕', '💗', '💖', '💝', '❤️', '💘', '✨', '🎆', '🎇'];
+
+    // Create multiple firework bursts
+    for (let burst = 0; burst < 8; burst++) {
+      setTimeout(() => {
+        const burstX = 20 + Math.random() * 60; // Random position across screen
+        const burstY = 20 + Math.random() * 40;
+
+        // Create particles for each burst
+        for (let i = 0; i < 15; i++) {
+          const particle = document.createElement('div');
+
+          // Mix emojis and colored particles
+          if (Math.random() > 0.5) {
+            particle.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            particle.style.fontSize = '1.5rem';
+          } else {
+            particle.style.width = '8px';
+            particle.style.height = '8px';
+            particle.style.borderRadius = '50%';
+            particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+          }
+
+          particle.style.position = 'fixed';
+          particle.style.left = burstX + '%';
+          particle.style.top = burstY + '%';
+          particle.style.pointerEvents = 'none';
+          particle.style.zIndex = '999';
+
+          const angle = (Math.PI * 2 * i) / 15;
+          const velocity = 100 + Math.random() * 100;
+          const tx = Math.cos(angle) * velocity;
+          const ty = Math.sin(angle) * velocity;
+
+          particle.style.animation = `firework-${burst}-${i} 1.5s ease-out forwards`;
+
+          const keyframes = `
+            @keyframes firework-${burst}-${i} {
+              0% {
+                transform: translate(0, 0);
+                opacity: 1;
+              }
+              100% {
+                transform: translate(${tx}px, ${ty + 200}px);
+                opacity: 0;
+              }
+            }
+          `;
+
+          const styleSheet = document.createElement('style');
+          styleSheet.textContent = keyframes;
+          document.head.appendChild(styleSheet);
+
+          document.body.appendChild(particle);
+
+          setTimeout(() => {
+            particle.remove();
+            styleSheet.remove();
+          }, 1500);
+        }
+      }, burst * 400);
+    }
+  }
+
+  // Add fall animation for confetti
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes fall {
+      to {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Initialize
+  initNoButton();
+  animate();
 });
